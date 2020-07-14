@@ -25,7 +25,7 @@ namespace geometrycentral {
 // === Constants
 
 const size_t INVALID_IND = std::numeric_limits<size_t>::max();
-const double PI = 3.1415926535897932384;
+//const double PI = 3.1415926535897932384;
 
 // === Memory management
 

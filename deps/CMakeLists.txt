@@ -100,7 +100,7 @@ if (SUITESPARSE)
   message("-- Searching for SuiteSparse.")
 
   # Check for SuiteSparse and dependencies.
-  find_package(SuiteSparse)
+  find_package(SuiteSparse PATHS "C:/dev/lib/x64/v140/")
   if (SUITESPARSE_FOUND)
     # By default, if all of SuiteSparse's dependencies are found, GC is
     # built with SuiteSparse support.

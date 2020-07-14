@@ -175,7 +175,8 @@ list(APPEND SUITESPARSE_CHECK_INCLUDE_DIRS
   /usr/local/include
   /usr/local/include/suitesparse
   /usr/include/suitesparse # Ubuntu
-  /usr/include)
+  /usr/include
+  C:/dev/SuiteSparse/include)
 list(APPEND SUITESPARSE_CHECK_LIBRARY_DIRS
   ${SUITESPARSE_LIBRARY_DIR_HINTS}
   /opt/local/lib
