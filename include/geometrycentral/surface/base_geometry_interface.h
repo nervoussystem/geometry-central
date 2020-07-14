@@ -1,6 +1,6 @@
 #pragma once
 
-#include "geometrycentral/surface/halfedge_mesh.h"
+#include "geometrycentral/surface/surface_mesh.h"
 #include "geometrycentral/utilities/dependent_quantity.h"
 #include "geometrycentral/utilities/vector2.h"
 #include "geometrycentral/utilities/vector3.h"
@@ -11,11 +11,11 @@ namespace surface {
 class BaseGeometryInterface {
 
 public:
-  BaseGeometryInterface(HalfedgeMesh& mesh);
+  BaseGeometryInterface(SurfaceMesh& mesh);
   virtual ~BaseGeometryInterface();
 
   // == Members
-  HalfedgeMesh& mesh;
+  SurfaceMesh& mesh;
 
 
   // == Utility methods
@@ -29,8 +29,14 @@ public:
 
   // Construct a geometry object on another mesh identical to this one
   // TODO move this to exist in realizations only
-  std::unique_ptr<BaseGeometryInterface> reinterpretTo(HalfedgeMesh& targetMesh);
+  std::unique_ptr<BaseGeometryInterface> reinterpretTo(SurfaceMesh& targetMesh);
 
+  // Hide copy and move constructors; users are more likely to use them accidentally than intentionally.
+  // See the explicit copy() function in derived classes.
+  BaseGeometryInterface(const BaseGeometryInterface& other) = delete;
+  BaseGeometryInterface& operator=(const BaseGeometryInterface& other) = delete;
+  BaseGeometryInterface(BaseGeometryInterface&& other) = delete;
+  BaseGeometryInterface& operator=(BaseGeometryInterface&& other) = delete;
 
   // === Quantities
 
@@ -77,6 +83,8 @@ public:
 
 protected:
   // All of the quantities available (subclasses will also add quantities to this list)
+  // Note that this is a vector of non-owning pointers; the quantities are generally value members in the class, so
+  // there is no need to delete these.
   std::vector<DependentQuantity*> quantities;
 
   // === Implementation details for quantities

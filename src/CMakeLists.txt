@@ -8,12 +8,13 @@ endif()
 # List of .cpp files to be compiled
 SET(SRCS
 
-  surface/halfedge_mesh.cpp
+  surface/surface_mesh.cpp
+  surface/manifold_surface_mesh.cpp
   surface/halfedge_factories.cpp
   surface/meshio.cpp
-  surface/polygon_soup_mesh.cpp
-  surface/ply_halfedge_mesh_data.cpp
-  
+  surface/simple_polygon_mesh.cpp
+  surface/rich_surface_mesh_data.cpp
+
   surface/base_geometry_interface.cpp
   surface/intrinsic_geometry_interface.cpp
   surface/extrinsic_geometry_interface.cpp
@@ -26,11 +27,19 @@ SET(SRCS
   surface/trace_geodesic.cpp
   surface/surface_centers.cpp
   surface/signpost_intrinsic_triangulation.cpp
-  #surface/mesh_graph_algorithms.cpp
+  surface/simple_idt.cpp
+  surface/mesh_graph_algorithms.cpp
+  surface/surface_point.cpp
+  surface/fast_marching_method.cpp
+  surface/uniformize.cpp
+  surface/parameterize.cpp
+  surface/surgery.cpp
+  surface/simple_idt.cpp
+  surface/exact_polyhedral_geodesics.cpp
+  surface/intrinsic_mollification.cpp
+  surface/tufted_laplacian.cpp
   #surface/detect_symmetry.cpp
   #surface/mesh_ray_tracer.cpp
-  #surface/exact_polyhedral_geodesics.cpp
-  #surface/fast_marching_method.cpp
 
   numerical/linear_algebra_utilities.cpp
   numerical/suitesparse_utilities.cpp
@@ -43,6 +52,7 @@ SET(SRCS
   utilities/utilities.cpp
   utilities/quaternion.cpp
   utilities/disjoint_sets.cpp
+  utilities/knn.cpp
 )
 
 SET(INCLUDE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../include/geometrycentral/")
@@ -63,30 +73,34 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/exact_polyhedral_geodesics.h
   ${INCLUDE_ROOT}/surface/extrinsic_geometry_interface.h
   ${INCLUDE_ROOT}/surface/fast_marching_method.h
-  ${INCLUDE_ROOT}/surface/halfedge_containers.h
-  ${INCLUDE_ROOT}/surface/halfedge_containers.ipp
   ${INCLUDE_ROOT}/surface/halfedge_element_types.h
   ${INCLUDE_ROOT}/surface/halfedge_element_types.ipp
   ${INCLUDE_ROOT}/surface/halfedge_factories.h
-  ${INCLUDE_ROOT}/surface/halfedge_iterators.h
-  ${INCLUDE_ROOT}/surface/halfedge_iterators.ipp
   ${INCLUDE_ROOT}/surface/halfedge_logic_templates.ipp
   ${INCLUDE_ROOT}/surface/halfedge_mesh.h
-  ${INCLUDE_ROOT}/surface/halfedge_mesh.ipp
   ${INCLUDE_ROOT}/surface/heat_method_distance.h
   ${INCLUDE_ROOT}/surface/intrinsic_geometry_interface.h
+  ${INCLUDE_ROOT}/surface/intrinsic_mollification.h
+  ${INCLUDE_ROOT}/surface/manifold_surface_mesh.h
   ${INCLUDE_ROOT}/surface/meshio.h
   ${INCLUDE_ROOT}/surface/mesh_graph_algorithms.h
   ${INCLUDE_ROOT}/surface/mesh_ray_tracer.h
-  ${INCLUDE_ROOT}/surface/ply_halfedge_mesh_data.h
-  ${INCLUDE_ROOT}/surface/ply_halfedge_mesh_data.ipp
+  ${INCLUDE_ROOT}/surface/parameterize.h
+  ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.h
+  ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.ipp
   ${INCLUDE_ROOT}/surface/polygon_soup_mesh.h
   ${INCLUDE_ROOT}/surface/signpost_intrinsic_triangulation.h
   ${INCLUDE_ROOT}/surface/signpost_intrinsic_triangulation.ipp
+  ${INCLUDE_ROOT}/surface/simple_idt.h
+  ${INCLUDE_ROOT}/surface/simple_polygon_mesh.h
   ${INCLUDE_ROOT}/surface/surface_centers.h
+  ${INCLUDE_ROOT}/surface/surface_mesh.h
+  ${INCLUDE_ROOT}/surface/surface_mesh.ipp
   ${INCLUDE_ROOT}/surface/surface_point.h
   ${INCLUDE_ROOT}/surface/surface_point.ipp
+  ${INCLUDE_ROOT}/surface/surgery.h
   ${INCLUDE_ROOT}/surface/trace_geodesic.h
+  ${INCLUDE_ROOT}/surface/uniformize.h
   ${INCLUDE_ROOT}/surface/vector_heat_method.h
   ${INCLUDE_ROOT}/surface/vertex_position_geometry.h
   ${INCLUDE_ROOT}/surface/vertex_position_geometry.ipp
@@ -97,6 +111,9 @@ SET(HEADERS
   ${INCLUDE_ROOT}/utilities/dependent_quantity.h
   ${INCLUDE_ROOT}/utilities/dependent_quantity.ipp
   ${INCLUDE_ROOT}/utilities/disjoint_sets.h
+  ${INCLUDE_ROOT}/utilities/knn.h
+  ${INCLUDE_ROOT}/utilities/mesh_data.h
+  ${INCLUDE_ROOT}/utilities/mesh_data.ipp
   ${INCLUDE_ROOT}/utilities/quaternion.h
   ${INCLUDE_ROOT}/utilities/timing.h
   ${INCLUDE_ROOT}/utilities/utilities.h
@@ -106,27 +123,23 @@ SET(HEADERS
   ${INCLUDE_ROOT}/utilities/vector3.ipp
 )
 
-
 # Create a single library for the project
-add_library(
-        geometry-central 
-        ${SRCS} ${HEADERS}
-        )
+add_library(geometry-central ${SRCS} ${HEADERS})
 
 # Includes from this project
 target_include_directories(geometry-central PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 
 # Add all includes and link libraries from dependencies, which were populated in deps/CMakeLists.txt
-target_include_directories(geometry-central PUBLIC "${GC_DEP_INCLUDES}")
-target_link_libraries(geometry-central ${GC_DEP_LIBRARIES})
+target_link_libraries(geometry-central PUBLIC ${GC_DEP_LIBS})
 
 # Set compiler properties for the library
 set_property(TARGET geometry-central PROPERTY CXX_STANDARD 11)
 set_property(TARGET geometry-central PROPERTY CXX_STANDARD_REQUIRED TRUE)
-add_definitions(-DNOMINMAX)
-add_definitions(-D_USE_MATH_DEFINES)
+target_compile_definitions(geometry-central PUBLIC NOMINMAX _USE_MATH_DEFINES)
 
 # Define CMAKE flag used in these sources (but should be kept OUT of headers)
 if(GC_HAVE_SUITESPARSE)
-  add_definitions(-DGC_HAVE_SUITESPARSE)
+  target_compile_definitions(geometry-central PUBLIC GC_HAVE_SUITESPARSE)
+  target_include_directories(geometry-central PRIVATE ${SUITESPARSE_INCLUDE_DIRS})
+  target_link_libraries(geometry-central PRIVATE ${SUITESPARSE_LIBRARIES})
 endif()

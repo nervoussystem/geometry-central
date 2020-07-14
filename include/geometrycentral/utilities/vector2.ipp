@@ -119,6 +119,11 @@ inline double dot(const Vector2& u, const Vector2& v) { return u.x * v.x + u.y *
 inline double angle(const Vector2& u, const Vector2& v) {
   return std::acos(std::fmax(-1., std::fmin(1., dot(unit(u), unit(v)))));
 }
+inline double orientedAngle(const Vector2& u, const Vector2& v) {
+  Vector2 uHat = unit(u);
+  Vector2 vHat = unit(v);
+  return std::atan2(cross(uHat, vHat), dot(uHat, vHat));
+}
 
 inline double cross(const Vector2& u, const Vector2& v) { return u.x * v.y - u.y * v.x; }
 inline Vector3 cross3(const Vector2& u, const Vector2& v) { return Vector3{0., 0., u.x * v.y - u.y * v.x}; }
@@ -147,6 +152,13 @@ inline std::ostream& operator<<(std::ostream& output, const Vector2& v) {
   return output;
 }
 
+inline std::istream& operator>>(std::istream& input, Vector2& v) {
+  double x, y;
+  input >> x >> y;
+  v = Vector2{x, y};
+  return input;
+}
+
 } // namespace geometrycentral
 
 namespace std {
@@ -163,4 +175,3 @@ inline std::string to_string(geometrycentral::Vector2 vec) {
 
 
 } // namespace std
-
