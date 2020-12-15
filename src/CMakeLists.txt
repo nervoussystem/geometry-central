@@ -10,7 +10,8 @@ SET(SRCS
 
   surface/surface_mesh.cpp
   surface/manifold_surface_mesh.cpp
-  surface/halfedge_factories.cpp
+  surface/halfedge_factories.cpp  
+  surface/surface_mesh_factories.cpp
   surface/meshio.cpp
   surface/simple_polygon_mesh.cpp
   surface/rich_surface_mesh_data.cpp
@@ -38,6 +39,7 @@ SET(SRCS
   surface/exact_polyhedral_geodesics.cpp
   surface/intrinsic_mollification.cpp
   surface/tufted_laplacian.cpp
+  surface/flip_geodesics.cpp
   #surface/detect_symmetry.cpp
   #surface/mesh_ray_tracer.cpp
 
@@ -111,6 +113,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/utilities/dependent_quantity.h
   ${INCLUDE_ROOT}/utilities/dependent_quantity.ipp
   ${INCLUDE_ROOT}/utilities/disjoint_sets.h
+  ${INCLUDE_ROOT}/utilities/eigen_interop_helpers.h
   ${INCLUDE_ROOT}/utilities/knn.h
   ${INCLUDE_ROOT}/utilities/mesh_data.h
   ${INCLUDE_ROOT}/utilities/mesh_data.ipp

@@ -56,6 +56,17 @@ Use these routines to iterate over all of the elements in the mesh.
     }
     ```
 
+??? func "`#!cpp SurfaceMesh::boundaryLoops()`"
+    Iterate over the boundary loops for a mesh.
+
+    Remember that only `ManifoldSurfaceMesh`s have well-defined boundary loops.
+
+    ```cpp
+    for(BoundaryLoop bl : mesh.boundaryLoops()) {
+      // do science here
+    }
+    ```
+
 
 ## Neighborhood Iterators 
 
@@ -137,6 +148,48 @@ Use these routines to iterate over the neighbors of a mesh element.
       // do science here
     }
     ```
+
+
+??? func "`#!cpp Edge::adjacentVertices()`"
+
+    Iterate over the (two) vertices which are endpoints of the edge.
+    ```cpp
+    for (Vertex v : edge.adjacentVertices()) {
+      // do science here
+    }
+    ```
+
+    Note: unlike most navigators, this routine actually returns a fixed-size array, so you can alternately write things like:
+    ```cpp 
+    std::array<Vertex, 2> verts = edge.adjacentVertices();
+    ```
+
+
+??? func "`#!cpp Edge::diamondBoundary()`"
+
+    Iterate over the four halfedges bounding the diamond with this edge as its center diagonal.
+
+    More precisely, for an interior edge on a manifold triangle mesh, this returns
+    ```cpp
+    Halfedge he = edge.halfedge();
+    return {he.next(), he.next().next(), he.twin().next(), he.twin().next().next()}
+    ```
+
+
+    Example:
+    ```cpp
+    for (Halfedge he : edge.diamondBoundary()) {
+      // do science here
+    }
+    ```
+
+    Throws an exception if there are non-triangular faces, the edge is on the boundary, or if the edge is nonmanifold.
+
+    Note: unlike most navigators, this routine actually returns a fixed-size array, so you can alternately write things like:
+    ```cpp 
+    std::array<Halfedge, 4> halfedges = edge.diamondBoundary();
+    ```
+
 
 ### Around a face
 

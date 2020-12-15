@@ -86,6 +86,11 @@ SurfaceMesh::SurfaceMesh(const std::vector<std::vector<size_t>>& polygons,
   nFacesCapacityCount = nFacesCount;
   nFacesFillCount = nFacesCount;
 
+  // Sanity check to detect unreferenced vertices
+#ifndef NGC_SAFETY_CHECKS
+  std::vector<char> vertUsed(nVerticesCount, false);
+#endif
+
   // === Walk the faces, creating halfedges. For now, don't hook up any twin or edge pointers.
   for (size_t iFace = 0; iFace < nFacesCount; iFace++) {
     const std::vector<size_t>& poly = polygons[iFace];
@@ -98,6 +103,10 @@ SurfaceMesh::SurfaceMesh(const std::vector<std::vector<size_t>>& polygons,
 
       size_t indTail = poly[iFaceHe];
       size_t indTip = poly[(iFaceHe + 1) % faceDegree];
+
+#ifndef NGC_SAFETY_CHECKS
+      vertUsed[indTail] = true;
+#endif
 
       // Get an index for this halfedge
       std::tuple<size_t, size_t> heKey{indTail, indTip};
@@ -123,6 +132,13 @@ SurfaceMesh::SurfaceMesh(const std::vector<std::vector<size_t>>& polygons,
     }
     heNextArr[prevHeInd] = firstHeInd; // hook up the first next() pointer, which we missed in the loop above
   }
+
+#ifndef NGC_SAFETY_CHECKS
+  // Look for any vertices which were unreferenced
+  for (size_t iV = 0; iV < nVerticesCount; iV++) {
+    GC_SAFETY_ASSERT(vertUsed[iV], "unreferenced vertex " + std::to_string(iV));
+  }
+#endif
 
   // === Create edges and hook up twins
   if (twins.empty()) {
@@ -518,7 +534,7 @@ std::unique_ptr<ManifoldSurfaceMesh> SurfaceMesh::toManifoldMesh() {
       i++;
     }
   }
-  
+
   // Build twin array
   std::vector<std::vector<std::tuple<size_t, size_t>>> twins(nFaces());
   for (Face f : faces()) {
@@ -583,6 +599,16 @@ void SurfaceMesh::copyInternalFields(SurfaceMesh& target) const {
   target.isCompressedFlag = isCompressedFlag;
 
   // Note: _don't_ copy callbacks lists! New mesh has new callbacks
+}
+
+
+Edge SurfaceMesh::connectingEdge(Vertex vA, Vertex vB) {
+  for (Edge e : vA.adjacentEdges()) {
+    if (e.otherVertex(vA) == vB) {
+      return e;
+    }
+  }
+  return Edge();
 }
 
 std::vector<std::vector<size_t>> SurfaceMesh::getFaceVertexList() {
@@ -1014,6 +1040,14 @@ void SurfaceMesh::validateConnectivity() {
   if (nFacesCount > nFacesFillCount) throw std::logic_error("face count > face fill");
   if (nFacesFillCount + nBoundaryLoopsCount > nFacesCapacityCount)
     throw std::logic_error("face + bl fill > face capacity");
+
+  // Check for overflow / other unreasonable values
+  if (nHalfedgesCount > std::numeric_limits<uint64_t>::max() / 2) throw std::logic_error("halfedge count overflow");
+  if (nExteriorHalfedges() > std::numeric_limits<uint64_t>::max() / 2)
+    throw std::logic_error("exterior halfedge count overflow");
+  if (nVerticesCount > std::numeric_limits<uint64_t>::max() / 2) throw std::logic_error("vertex count overflow");
+  if (nEdgesCount > std::numeric_limits<uint64_t>::max() / 2) throw std::logic_error("edge count overflow");
+  if (nFacesCount > std::numeric_limits<uint64_t>::max() / 2) throw std::logic_error("face count overflow");
 
   // Helpers to check the validity of references
   auto validateVertex = [&](size_t iV, std::string msg) {
@@ -1559,6 +1593,10 @@ void SurfaceMesh::expandFaceStorage() {
 
 void SurfaceMesh::deleteEdgeBundle(Edge e) {
 
+  // TODO there are some pitfalls here, because this method needs to test whether the incident halfedges are interior,
+  // but that seemingly means adjacent faces must not have been deleted yet. It seems easy to make a mistake when
+  // deleting lots of elements. Need to think through this carefully and document the "safe" way to perform deletions.
+
   std::vector<size_t> heInds;
   for (Halfedge he : e.adjacentHalfedges()) {
     heInds.push_back(he.getIndex());
@@ -1566,6 +1604,11 @@ void SurfaceMesh::deleteEdgeBundle(Edge e) {
 
   // delete all of the incident halfedges
   for (size_t i : heInds) {
+    nHalfedgesCount--;
+    if (heIsInterior(i)) {
+      nInteriorHalfedgesCount--;
+    }
+
     heNextArr[i] = INVALID_IND;
     heVertexArr[i] = INVALID_IND;
     heFaceArr[i] = INVALID_IND;
@@ -1577,11 +1620,6 @@ void SurfaceMesh::deleteEdgeBundle(Edge e) {
       heVertInPrevArr[i] = INVALID_IND;
       heVertOutNextArr[i] = INVALID_IND;
       heVertOutPrevArr[i] = INVALID_IND;
-    }
-
-    nHalfedgesCount--;
-    if (heIsInterior(i)) {
-      nInteriorHalfedgesCount--;
     }
   }
 
@@ -1673,11 +1711,17 @@ void SurfaceMesh::compressHalfedges() {
 
   // Build the compressing shift
   std::vector<size_t> newIndMap;                                   // maps new ind -> old ind
+  std::vector<size_t> newIndEdgeMap;                               // maps edge new ind -> old ind
   std::vector<size_t> oldIndMap(nHalfedgesFillCount, INVALID_IND); // maps old ind -> new ind
   for (size_t i = 0; i < nHalfedgesFillCount; i++) {
     if (!halfedgeIsDead(i)) {
       oldIndMap[i] = newIndMap.size();
       newIndMap.push_back(i);
+
+      if (usesImplicitTwin() && i % 2 == 0) {
+        size_t iEdge = i / 2;
+        newIndEdgeMap.push_back(iEdge);
+      }
     }
   }
 
@@ -1685,8 +1729,8 @@ void SurfaceMesh::compressHalfedges() {
   heNextArr = applyPermutation(heNextArr, newIndMap);
   heVertexArr = applyPermutation(heVertexArr, newIndMap);
   heFaceArr = applyPermutation(heFaceArr, newIndMap);
-  heSiblingArr = applyPermutation(heSiblingArr, newIndMap);
   if (!usesImplicitTwin()) {
+    heSiblingArr = applyPermutation(heSiblingArr, newIndMap);
     heEdgeArr = applyPermutation(heEdgeArr, newIndMap);
     heOrientArr = applyPermutation(heOrientArr, newIndMap);
     heVertInNextArr = applyPermutation(heVertInNextArr, newIndMap);
@@ -1719,10 +1763,26 @@ void SurfaceMesh::compressHalfedges() {
   for (auto& f : halfedgePermuteCallbackList) {
     f(newIndMap);
   }
+
+  // In the implicit-twin case, we also need to update edge data here, because they are always in-sync with halfedges
+  if (usesImplicitTwin()) {
+    nEdgesFillCount = nEdgesCount;
+    nEdgesCapacityCount = nEdgesCount;
+    // Invoke callbacks
+    for (auto& f : edgePermuteCallbackList) {
+      f(newIndEdgeMap);
+    }
+  }
 }
 
 
 void SurfaceMesh::compressEdges() {
+
+  if (usesImplicitTwin()) {
+    // In the implicit-twin case, all updates are handled in the halfedge function (see note there)
+    return;
+  }
+
   // Build the compressing shift
   std::vector<size_t> newIndMap;                               // maps new ind -> old ind
   std::vector<size_t> oldIndMap(nEdgesFillCount, INVALID_IND); // maps old ind -> new ind
@@ -1733,17 +1793,11 @@ void SurfaceMesh::compressEdges() {
     }
   }
 
-
   // Permute & resize all per-edge arrays
-  if (!usesImplicitTwin()) {
-    eHalfedgeArr = applyPermutation(eHalfedgeArr, newIndMap);
-  }
-
+  eHalfedgeArr = applyPermutation(eHalfedgeArr, newIndMap);
 
   // Update indices in all edge-valued arrays
-  if (!usesImplicitTwin()) {
-    updateValues(heEdgeArr, oldIndMap);
-  }
+  updateValues(heEdgeArr, oldIndMap);
 
   // Update counts
   nEdgesFillCount = nEdgesCount;
@@ -1758,12 +1812,18 @@ void SurfaceMesh::compressEdges() {
 void SurfaceMesh::compressFaces() {
   // Build the compressing shift
   std::vector<size_t> newIndMap;                                   // maps new ind -> old ind
+  std::vector<size_t> newBLIndMap;                                 // maps BL new ind -> old ind
   std::vector<size_t> oldIndMap(nFacesCapacityCount, INVALID_IND); // maps old ind -> new ind
   for (size_t i = 0; i < nFacesCapacityCount; i++) {
-    if (i < nFacesFillCount || i >= nFacesCount - nBoundaryLoopsFillCount) { // skip gap between faces and BLs
+    bool isBL = (i >= nFacesCapacityCount - nBoundaryLoopsFillCount);
+    if (i < nFacesFillCount || isBL) { // skip gap between faces and BLs
       if (!faceIsDead(i)) {
         oldIndMap[i] = newIndMap.size();
         newIndMap.push_back(i);
+
+        if (isBL) {
+          newBLIndMap.push_back(faceIndToBoundaryLoopInd(i));
+        }
       }
     }
   }
@@ -1781,8 +1841,12 @@ void SurfaceMesh::compressFaces() {
   nBoundaryLoopsFillCount = nBoundaryLoopsCount;
 
   // Invoke callbacks
+  newIndMap.resize(nFacesCount); // truncate all boundary loop entries, so this array now just holds values for faces
   for (auto& f : facePermuteCallbackList) {
     f(newIndMap);
+  }
+  for (auto& f : boundaryLoopPermuteCallbackList) {
+    f(newBLIndMap);
   }
 }
 

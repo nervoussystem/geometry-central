@@ -17,6 +17,10 @@ public:
 
   // Construct from positions
   VertexPositionGeometry(SurfaceMesh& mesh_, const VertexData<Vector3>& inputVertexPositions);
+  
+  // Construct from positions (stored in an Eigen matrix)
+  template <typename T>
+  VertexPositionGeometry(SurfaceMesh& mesh_, const Eigen::MatrixBase<T>& vertexPositions);
 
   // Boring destructor
   virtual ~VertexPositionGeometry() {}
@@ -39,16 +43,23 @@ public:
   // == Immediates
   double edgeLength(Edge e) const;
   double faceArea(Face f) const;
+  double vertexDualArea(Vertex v) const;
   double cornerAngle(Corner c) const;
   double halfedgeCotanWeight(Halfedge he) const;
   double edgeCotanWeight(Edge e) const;
   Vector3 faceNormal(Face f) const;
-
+  Vector3 halfedgeVector(Halfedge he) const;
+  double edgeDihedralAngle(Edge e) const;
+  double vertexMeanCurvature(Vertex v) const;
+  double vertexGaussianCurvature(Vertex v) const;
+  double vertexMinPrincipalCurvature(Vertex v) const;
+  double vertexMaxPrincipalCurvature(Vertex v) const;
 
 protected:
   // Override the compute vertex positions method for embedded geometry
   virtual void computeVertexPositions() override;
 
+  double vertexPrincipalCurvature(int whichCurvature, Vertex v) const;
 
 private:
 };

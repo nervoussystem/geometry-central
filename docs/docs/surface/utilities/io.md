@@ -101,6 +101,17 @@ std::tie(mesh2, geometry2) = readSurfaceMesh("spot_messy.obj");
     When reading from a stream, the type _must_ be specified and cannot be automatically inferred.
 
 
+??? func "`#!cpp std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>, std::unique_ptr<CornerData<Vector2>>> readParameterizedManifoldSurfaceMesh(std::string filename, std::string type="")`"
+
+    Loads a manifold surface mesh plus UV (texture) coordinates from a file.  See other variants for details.
+
+    Currently only OBJ files are supported.
+
+??? func "`#!cpp std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>, std::unique_ptr<CornerData<Vector2>>> readParameterizedSurfaceMesh(std::string filename, std::string type="")`"
+
+    Loads a general surface mesh plus UV (texture) coordinates from a file.  See other variants for details.
+
+    Currently only OBJ files are supported.
 
 ## Writing meshes
 
@@ -180,6 +191,7 @@ writeSurfaceMesh(*mesh, *geometry, packToParam(*mesh, vals), "my_mesh.obj");
 | `ply` |    ✅    |         |            |                                                   |
 | `off` |    ✅    |         |            |                                                   |
 | `stl` |    ✅    |         |            | Exactly colocated vertices are automatically merged |
+
 
 
 ## Rich Surface Mesh Data
@@ -438,3 +450,66 @@ Properties can then be read as:
 ??? func "`#!cpp std::unique_ptr<EdgeLengthGeometry> RichSurfaceMeshData::getIntrinsicGeometry()`"
 
     Build a new geometry object from edge lengths stored in a file (by `addIntrinsicGeometry()`).
+
+
+## Factory constructors
+
+  These simultaneously construct the connectivity and geometry of a mesh, and are used internally in many of the subroutines above.
+
+  `#include "geometrycentral/surface/surface_mesh_factories.h"`
+
+  Construct a mesh and geometry from a list of polygons and vertex positions:
+
+??? func "`#!cpp std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>> makeSurfaceMeshAndGeometry(const std::vector<std::vector<size_t>>& polygons, const std::vector<Vector3> vertexPositions)`"
+
+    Construct a new surface mesh and geometry from a list of face indices and a list of vertex positions. See the constructors of `SurfaceMesh` and `VertexPositionGeometry` for more details about their semantics.
+    
+    - `polygons` is a nested list of zero-indexed face indices 
+    - `vertexPositions` is a list of 3D vertex positions
+
+??? func "`#!cpp std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>> makeManifoldSurfaceMeshAndGeometry(const std::vector<std::vector<size_t>>& polygons, const std::vector<Vector3> vertexPositions)`"
+
+    Same as above, but the result is a `ManifoldSurfaceMesh` (and thus the connectivity must describe a manifold mesh).
+
+
+  Construct a mesh and geometry from face indices and vertex positions, stored in dense (Eigen) matrices:
+
+  ```cpp
+  #include "geometrycentral/surface/surface_mesh_factories.h"
+
+  // matrices describing mesh (populated somehow)
+  Eigen::MatrixXd vMat = /* ... */;  // V x 3 array of vertex positions
+  Eigen::MatrixXi fMat = /* ... */;  // F x 3 array of zero-indexed face indices 
+                                     // (or F x 4 for quads, etc)
+
+  // construct geometry-central mesh types
+  std::unique_ptr<SurfaceMesh> mesh;
+  std::unique_ptr<VertexPositionGeometry> geometry;
+  std::tie(mesh, geometry) = makeSurfaceMeshAndGeometry(vMat, fMat);
+
+  // OR to construct a mesh which must be manifold
+  std::unique_ptr<ManifoldSurfaceMesh> meshManifold;
+  std::unique_ptr<VertexPositionGeometry> geometryManifold;
+  std::tie(meshManifold, geometryManifold) = makeManifoldSurfaceMeshAndGeometry(vMat, fMat);
+  ```
+
+??? func "`#!cpp std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>> makeSurfaceMeshAndGeometry(const Eigen::MatrixBase<Scalar_V>& vMat, const Eigen::MatrixBase<Scalar_F>& fMat)`"
+
+    Construct a new surface mesh and geometry from a list of face indices and a list of vertex positions. See the constructors of `SurfaceMesh` and `VertexPositionGeometry` for more details about their semantics. Note that these arguments are ordered `V,F` to match MATLAB & friends conventions.
+
+    - `vMat` is a `Vx3` floating-point valued matrix of vertex positions. Any floating point type can be used.
+    - `fMat` is an `FxD` index valued matrix of zero-indexed face indices (e.g. an Fx3 array of triangles, of Fx4 array of quads). The index type can be any integer type (like `size_t` or `int`).
+    
+    The `Eigen:MatrixBase<T>` type is just a general type which accepts most Eigen matrix types as input, including geometry-central's nicely-named wrapper `DenseMatrix<T>`.
+
+??? func "`#!cpp std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>> makeManifoldSurfaceMeshAndGeometry(const Eigen::MatrixBase<Scalar_V>& vMat, const Eigen::MatrixBase<Scalar_F>& fMat)`"
+
+    Same as above, but the result is a `ManifoldSurfaceMesh` (and thus the connectivity must describe a manifold mesh).
+
+
+
+
+
+
+
+

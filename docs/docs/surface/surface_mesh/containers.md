@@ -86,7 +86,40 @@ Additionally, see the vector-based initializers in [vector interoperability](con
 
 ??? func "`#!cpp size_t MeshData<E,T>::size()`"
 
-    The size of the container (equal to the number of elements of type `E`, e.g. `SurfaceMesh::nVertices()`).
+    The size of the underlying buffer for the container. In particular, the largest integer `i` such that `data[i]` is safe.
+
+    Generally on a compressed mesh this is the same as the number of elements of type `E`, e.g. `SurfaceMesh::nVertices()`, but on an uncompressed mesh or in the presence of exterior halfedges it may be larger.
+
+    NOTE: The behavior of this function as changed in recent versions.
+
+??? func "`#!cpp SurfaceMesh* MeshData<E,T>::getMesh() const`"
+
+    The mesh on which the container is defined.
+
+
+## Arithmetic
+
+`MeshData<>` containers support arithmetic operations with each other, and with scalar values. All arithmetic is applied independently to each value in the container, and is only well-defined for containers defined on the same mesh.
+
+```cpp
+// add two vertex datas together
+VertexData<double> A(*mesh, 1.); // (sample data, filled with all 1's)
+VertexData<double> B(*mesh, 2.); 
+VertexData<double> C = A + B;
+
+// multiply times a scalar
+FaceData<double> vals(*mesh, 1.);
+vals *= 12.0;
+
+// types do not need to be the same, as long as the operation
+// is well-defined
+VertexData<float> scales(*mesh, 2.);
+VertexData<Vector3> vecs(*mesh, Vector3{1., 2., 3.});
+VertexData<Vector3> scaledVecs = scales * vecs ;
+```
+
+The binary operators `+,-,*,/,%,&,|,^,<< ,>>,&&,||` and the unary operators `+,-,!,~` are all supported, along with the matching assignment operators like `+=`. Of course, the underlying container entry types must support the operation, and the result of the operation must be compatible with the destination container.
+
 
 
 ## Vector interoperability
@@ -124,12 +157,16 @@ The corresponding vectors are indexed according to the indices of the underlying
 
 ??? func "`#!cpp Eigen::Matrix<T, Eigen::Dynamic, 1> MeshData<E,T>::toVector()`"
 
-    Return a new vector which holds the contents of this container.
+    Return a new `std::vector` which holds the contents of this container.
+
+    Detail: this vector will always be a dense listing of values per-element, regardless of whether the mesh is compressed, etc. Therefore, the contents of this vector are _not_ necessarily always identical to the raw underlying buffer via `raw()`. Even in the case of a compressed mesh, for `CornerData<>` the resulting vector will omit implicit indices for exterior "outside" corners which may exist on meshes with boundary.
     
 
 ??? func "`#!cpp Eigen::Matrix<T, Eigen::Dynamic, 1> MeshData<E,T>::toVector(MeshData<E, size_t>& indexer)`"
 
     Return a new vector which holds the contents of this container, indexed according to `indexer`.
+
+    See `toVector()` for more details.
     
 
     
@@ -178,5 +215,9 @@ Under the hood, all `MeshData<>` types use a `Eigen::Matrix<T>` to store their v
 ??? func "`#!cpp Eigen::Matrix<T, Eigen::Dynamic, 1>& MeshData<E,T>::raw()`"
 
     Access the raw underlying Eigen vector of storage.
+
+??? func "`#!cpp const Eigen::Matrix<T, Eigen::Dynamic, 1>& MeshData<E,T>::raw() const`"
+
+    Access the raw underlying Eigen vector of storage (const).
 
 

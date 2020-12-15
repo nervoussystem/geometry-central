@@ -74,10 +74,21 @@ inline Vector2 Vector2::normalize() const {
   return *this * r;
 }
 
-inline Vector2 unit(const Vector2& v) {
-  double n = norm(v);
-  return Vector2{v.x / n, v.y / n};
+inline Vector2 Vector2::unit() const { return normalize(); }
+
+
+inline Vector2 Vector2::normalizeCutoff(double mag) const {
+  double len = std::sqrt(x * x + y * y);
+  if (len <= mag) len = 1.;
+  double r = 1. / len;
+  return *this * r;
 }
+
+inline Vector2 normalize(const Vector2& v) { return v.normalize(); }
+
+inline Vector2 unit(const Vector2& v) { return normalize(v); }
+
+inline Vector2 normalizeCutoff(const Vector2& v, double mag) { return v.normalizeCutoff(mag); }
 
 inline Vector2 Vector2::rotate(double theta) const {
   double cosTh = std::cos(theta);
